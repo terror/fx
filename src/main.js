@@ -29,9 +29,6 @@ void main() {
 
 const canvas = document.getElementById('canvas');
 
-// canvas.width = canvas.clientWidth * window.devicePixelRatio;
-// canvas.height = canvas.clientHeight * window.devicePixelRatio;
-
 const gl = canvas.getContext('webgl2');
 
 if (!gl) {
@@ -66,83 +63,69 @@ if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
 gl.useProgram(program);
 
 const vertices = [-1, -1, 0, 1, -1, 0, 1, 1, 0, 1, 1, 0, -1, 1, 0, -1, -1, 0];
-
 const vertexData = new Float32Array(vertices);
-var buffer = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
 gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
 
 const vertexPosition = gl.getAttribLocation(program, 'position');
 gl.enableVertexAttribArray(vertexPosition);
 gl.vertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, 0, 0);
 
-const textures = [];
-
-for (let i = 0; i < 2; i++) {
-  const targetTextureWidth = 256;
-  const targetTextureHeight = 256;
+const textures = new Array(2).fill(null).map(() => {
   const targetTexture = gl.createTexture();
 
   gl.bindTexture(gl.TEXTURE_2D, targetTexture);
 
-  const level = 0;
-  const internalFormat = gl.RGBA;
-  const border = 0;
-  const format = gl.RGBA;
-  const type = gl.UNSIGNED_BYTE;
-  const data = null;
-
   gl.texImage2D(
     gl.TEXTURE_2D,
-    level,
-    internalFormat,
-    targetTextureWidth,
-    targetTextureHeight,
-    border,
-    format,
-    type,
-    data
+    0,
+    gl.RGBA,
+    256,
+    256,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    null
   );
 
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-  textures.push(targetTexture);
-}
+  return targetTexture;
+});
 
 const fb = gl.createFramebuffer();
 const textureLocation = gl.getUniformLocation(program, 'source');
 gl.uniform1i(textureLocation, 0);
-const invert = gl.getUniformLocation(program, 'invert')
+const invert = gl.getUniformLocation(program, 'invert');
 
-const render = (e) => {
-  var input = document.getElementById('program').value.split(' ');
-
+const render = (_) => {
   let source = 0;
-  for (let i = 0; i < input.length; ++i) {
-    switch (input[i]) {
-      case 'apply':
-        console.log('applying...');
-        gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-        const attachmentPoint = gl.COLOR_ATTACHMENT0;
-        const level = 0;
-        gl.framebufferTexture2D(
-          gl.FRAMEBUFFER,
-          attachmentPoint,
-          gl.TEXTURE_2D,
-          textures[source ^ 1],
-          level
-        );
-        gl.bindTexture(gl.TEXTURE_2D, textures[source]);
-        gl.uniform1i(invert, 1);
-        gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 3);
-        source ^= 1;
-        break;
-      default:
-        throw input[0];
-    }
-  }
+
+  document
+    .getElementById('program')
+    .value.split(' ')
+    .forEach((token) => {
+      switch (token) {
+        case 'apply':
+          gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+          gl.framebufferTexture2D(
+            gl.FRAMEBUFFER,
+            gl.COLOR_ATTACHMENT0,
+            gl.TEXTURE_2D,
+            textures[source ^ 1],
+            0
+          );
+          gl.bindTexture(gl.TEXTURE_2D, textures[source]);
+          gl.uniform1i(invert, 1);
+          gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 3);
+          source ^= 1;
+          break;
+        default:
+          throw input[0];
+      }
+    });
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.bindTexture(gl.TEXTURE_2D, textures[source]);

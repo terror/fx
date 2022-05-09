@@ -1,3 +1,3 @@
 ## webgl-proto
 
-js + webgl input/output chaining prototype
+js + webgl texture input/output chaining prototype
