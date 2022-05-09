@@ -2,9 +2,11 @@
 <html>
   <head>
     <title>webgl proto</title>
+    <script defer src="main.js"></script>
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <canvas id="canvas" width="640" height="480"></canvas>
-    <script src="main.js"></script>
+    <canvas id="canvas"></canvas>
+    <textarea id="program" oninput="render()" type="text"></textarea>
   </body>
 </html>
