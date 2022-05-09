@@ -1,4 +1,4 @@
-const vertexCode = `
+const vert = `
 #version 300 es
 
 in vec4 position;
@@ -8,7 +8,7 @@ void main() {
 }
 `;
 
-const fragmentCode = `
+const frag = `
 #version 300 es
 
 precision highp float;
@@ -27,108 +27,146 @@ void main() {
 }
 `;
 
-const canvas = document.getElementById('canvas');
+class Computer {
+  constructor() {
+    this.gl = document.getElementById('canvas').getContext('webgl2');
 
-const gl = canvas.getContext('webgl2');
+    if (!this.gl) {
+      throw 'Failed to initialize WebGL context';
+    }
 
-if (!gl) {
-  throw 'Unable to initialize WebGL.';
-}
+    this.program = this.createProgram(
+      [{'code': vert, 'type': 'vertex'},
+       {'code': frag, 'type': 'fragment'}]
+    );
 
-const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-gl.shaderSource(vertexShader, vertexCode.trim());
-gl.compileShader(vertexShader);
+    this.length = this.setupTriangles();
+    this.source = 0;
+    this.textures = new Array(2).fill(null).map(() => this.createTexture());
+    this.textureLocation = this.gl.getUniformLocation(this.program, 'source');
+    this.frameBuffer = this.gl.createFramebuffer();
+  }
 
-if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
-  throw gl.getShaderInfoLog(vertexShader);
-}
+  run(e) {
+    const gl = this.gl;
 
-const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-gl.shaderSource(fragmentShader, fragmentCode.trim());
-gl.compileShader(fragmentShader);
+    const input = e.target.value;
 
-if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
-  throw gl.getShaderInfoLog(fragmentShader);
-}
-
-const program = gl.createProgram();
-gl.attachShader(program, vertexShader);
-gl.attachShader(program, fragmentShader);
-gl.linkProgram(program);
-
-if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-  throw gl.getProgramInfoLog(program);
-}
-
-gl.useProgram(program);
-
-const vertices = [-1, -1, 0, 1, -1, 0, 1, 1, 0, 1, 1, 0, -1, 1, 0, -1, -1, 0];
-const vertexData = new Float32Array(vertices);
-gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
-
-const vertexPosition = gl.getAttribLocation(program, 'position');
-gl.enableVertexAttribArray(vertexPosition);
-gl.vertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, 0, 0);
-
-const textures = new Array(2).fill(null).map(() => {
-  const targetTexture = gl.createTexture();
-
-  gl.bindTexture(gl.TEXTURE_2D, targetTexture);
-
-  gl.texImage2D(
-    gl.TEXTURE_2D,
-    0,
-    gl.RGBA,
-    256,
-    256,
-    0,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
-    null
-  );
-
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-  return targetTexture;
-});
-
-const fb = gl.createFramebuffer();
-const textureLocation = gl.getUniformLocation(program, 'source');
-gl.uniform1i(textureLocation, 0);
-const invert = gl.getUniformLocation(program, 'invert');
-
-const render = (_) => {
-  let source = 0;
-
-  document
-    .getElementById('program')
-    .value.split(' ')
+    input
+    .split(' ')
     .forEach((token) => {
+      console.log(token);
       switch (token) {
         case 'apply':
-          gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-          gl.framebufferTexture2D(
-            gl.FRAMEBUFFER,
-            gl.COLOR_ATTACHMENT0,
-            gl.TEXTURE_2D,
-            textures[source ^ 1],
-            0
-          );
-          gl.bindTexture(gl.TEXTURE_2D, textures[source]);
-          gl.uniform1i(invert, 1);
-          gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 3);
-          source ^= 1;
+          // TODO: apply a selected mask, default to invert
+          this.apply(() => gl.uniform1i(gl.getUniformLocation(this.program, 'invert'), 1));
           break;
         default:
-          throw input[0];
+          throw `Failed to compile program: ${input[0]}`;
       }
     });
 
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.bindTexture(gl.TEXTURE_2D, textures[source]);
-  gl.uniform1i(invert, 0);
-  gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 3);
-};
+    this.drawToCanvas();
+  }
+
+  apply(mask) {
+    const gl = this.gl;
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.textures[this.source ^ 1], 0);
+    gl.bindTexture(gl.TEXTURE_2D, this.textures[this.source]);
+    mask();
+    gl.drawArrays(gl.TRIANGLES, 0, this.length);
+
+    this.source ^= 1;
+  }
+
+  createShader(item) {
+    const gl = this.gl;
+
+    const shader = gl.createShader(
+      item.type === 'vertex' ?
+      gl.VERTEX_SHADER :
+      gl.FRAGMENT_SHADER
+    );
+
+    gl.shaderSource(shader, item.code.trim());
+    gl.compileShader(shader);
+
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      throw gl.getShaderInfoLog(shader);
+    }
+
+    return shader;
+  }
+
+  createTexture() {
+    const gl = this.gl;
+
+    const texture = gl.createTexture();
+
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 256, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    return texture;
+  }
+
+  createProgram(code) {
+    const gl = this.gl;
+
+    const program = gl.createProgram();
+
+    code
+      .map((item) => this.createShader(item))
+      .forEach((shader) => {
+      gl.attachShader(program, shader);
+    });
+
+    gl.linkProgram(program);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      throw gl.getProgramInfoLog(program);
+    }
+
+    gl.useProgram(program);
+
+    return program;
+  };
+
+  drawToCanvas() {
+    const gl = this.gl;
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, this.textures[this.source]);
+    gl.uniform1i(gl.getUniformLocation(this.program, 'invert'), 0);
+    gl.drawArrays(gl.TRIANGLES, 0, this.length);
+  }
+
+  setupTriangles() {
+    const gl = this.gl;
+
+    const vertices = new Float32Array([-1, -1, 0, 1, -1, 0, 1, 1, 0, 1, 1, 0, -1, 1, 0, -1, -1, 0]);
+    const position = gl.getAttribLocation(this.program, 'position');
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(position);
+    gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 0, 0);
+
+    return vertices.length / 3;
+  }
+}
+
+const main = () => {
+  try {
+    const computer = new Computer();
+    document.getElementById('program').addEventListener('input', (e) => computer.run(e));
+  } catch (error) {
+    console.error(`error: ${error}`);
+  }
+}
+
+main();
