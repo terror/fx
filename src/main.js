@@ -48,10 +48,9 @@ class Computer {
     this.frameBuffer = this.gl.createFramebuffer();
   }
 
-  run(e) {
-    const input = e.target.value;
-
+  run(input) {
     input.split(' ').forEach((token) => {
+      console.log(token);
       switch (token) {
         case 'apply':
           this.apply(() =>
@@ -191,9 +190,12 @@ class Computer {
 const main = () => {
   try {
     const computer = new Computer();
-    document
-      .getElementById('program')
-      .addEventListener('input', (e) => computer.run(e));
+    const editor = CodeMirror.fromTextArea(document.getElementById('program'), {
+      lineNumbers: true,
+      tabSize: 2,
+    });
+    editor.on('changes', () => computer.run(editor.getValue()));
+    editor.save();
   } catch (error) {
     console.error(`error: ${error}`);
   }
