@@ -29,36 +29,43 @@ void main() {
 
 class Computer {
   constructor() {
+    // The WebGL canvas context
     this.gl = document.getElementById('canvas').getContext('webgl2');
 
     if (!this.gl) {
       throw 'Failed to initialize WebGL context';
     }
 
+    // The WebGL program composed of two shaders
     this.program = this.createProgram([
-      { code: vert, type: 'vertex' },
-      { code: frag, type: 'fragment' },
+      { text: vert, type: this.gl.VERTEX_SHADER },
+      { text: frag, type: this.gl.FRAGMENT_SHADER },
     ]);
 
+    // Length of our triangle indices array used for drawing
     this.length = this.setupTriangles();
+
+    // Index of the source texture
     this.source = 0;
+
+    // Textures we use for each `apply`
     this.textures = new Array(2).fill(null).map(() => this.createTexture());
-    this.textureLocation = this.gl.getUniformLocation(this.program, 'source');
-    this.gl.uniform1i(this.textureLocation, 0);
+
+    // The current mask
+    this.mask = this.getUniform('all');
+
+    // The current operation
+    this.operation = this.getUniform('invert');
+
+    // The frame buffer that holds our textures
     this.frameBuffer = this.gl.createFramebuffer();
   }
 
   run(input) {
     input.split(' ').forEach((token) => {
-      console.log(token);
       switch (token) {
         case 'apply':
-          this.apply(() =>
-            this.gl.uniform1i(
-              this.gl.getUniformLocation(this.program, 'invert'),
-              1
-            )
-          );
+          this.render();
           break;
         default:
           throw `Failed to compile program: ${input[0]}`;
@@ -68,7 +75,7 @@ class Computer {
     this.drawToCanvas();
   }
 
-  apply(mask) {
+  render() {
     const gl = this.gl;
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
@@ -82,20 +89,29 @@ class Computer {
     );
 
     gl.bindTexture(gl.TEXTURE_2D, this.textures[this.source]);
-    mask();
+
+    this.setUniform(this.mask, 1);
+    this.setUniform(this.operation, 1);
+
     gl.drawArrays(gl.TRIANGLES, 0, this.length);
 
     this.source ^= 1;
   }
 
-  createShader(item) {
+  getUniform(name) {
+    return this.gl.getUniformLocation(this.program, name);
+  }
+
+  setUniform(uniform, value) {
+    this.gl.uniform1i(uniform, value);
+  }
+
+  createShader(code) {
     const gl = this.gl;
 
-    const shader = gl.createShader(
-      item.type === 'vertex' ? gl.VERTEX_SHADER : gl.FRAGMENT_SHADER
-    );
+    const shader = gl.createShader(code.type);
 
-    gl.shaderSource(shader, item.code.trim());
+    gl.shaderSource(shader, code.text.trim());
     gl.compileShader(shader);
 
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
@@ -158,7 +174,10 @@ class Computer {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D, this.textures[this.source]);
-    gl.uniform1i(gl.getUniformLocation(this.program, 'invert'), 0);
+
+    this.setUniform(this.mask, 0);
+    this.setUniform(this.operation, 0);
+
     gl.drawArrays(gl.TRIANGLES, 0, this.length);
   }
 
