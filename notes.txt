@@ -1,0 +1,27 @@
+masks:
+- all
+- *bottom
+- circle
+- *left
+- mod    (div, rem)
+- *right
+- rows   (nrows, step)
+- square
+- top
+- x
+
+operations:
+- identity
+- invert
+- rotate-color
+
+other keywords:
+- apply
+- for    (count)
+- rotate (turns)
+- scale  (scaling)
+- wrap
+
+TODO:
+- fix canvas rendering
+- support keywords with arguments
