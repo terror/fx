@@ -2,13 +2,12 @@ const vert = `
 #version 300 es
 
 in vec4 position;
+out vec2 uv;
+
 uniform vec2 resolution;
 
 void main() {
-  // vec2 zeroToOne = position.xy / resolution;
-  // vec2 zeroToTwo = zeroToOne * 2.0;
-  // vec2 clipSpace = zeroToTwo - 1.0;
-  // gl_Position = vec4(clipSpace, 0, 1);
+  uv = position.xy * 0.5 + 0.5;
   gl_Position = position;
 }
 `;
@@ -18,6 +17,7 @@ const frag = `
 
 precision highp float;
 
+in vec2 uv;
 out vec4 color;
 
 uniform sampler2D source;
@@ -38,23 +38,25 @@ vec4 operation(vec4 pixel) {
   return pixel;
 }
 
-bool is_masked(vec2 coords) {
+bool is_masked() {
+  // TODO
   if (circle)
-    return true;
+    return normalize(uv.x) < 1.0 && normalize(uv.y) < 1.0;
+  // TODO
   if (cross)
-    return true;
+    return abs(uv.x) < 0.25 || abs(uv.y) < 0.25;
   if (square)
-    return true;
+    return abs(uv.x - 0.5) < 0.25 && abs(uv.y - 0.5) < 0.25;
   if (top)
-    return coords.y < 0.0;
+    return uv.y > 0.5;
   if (x)
-    return abs(coords.x - coords.y) < 0.25 || abs(coords.x + coords.y) < 0.25;
+    return min(abs((1.0 - uv.x) - uv.y), abs(uv.x - uv.y)) < 0.1;
   return true;
 }
 
 void main() {
-  vec4 pixel = texture(source, gl_FragCoord.xy / 512.0);
-  color = is_masked(gl_FragCoord.xy / 512.0) ? operation(pixel) : pixel;
+  vec4 pixel = texture(source, uv);
+  color = is_masked() ? operation(pixel) : pixel;
 }
 `;
 
@@ -77,7 +79,7 @@ class Computer {
       { text: frag, type: this.gl.FRAGMENT_SHADER },
     ]);
 
-    // Number of pixels == size it's displayed
+    // Resize the canvas to match the size its displayed
     webglUtils.resizeCanvasToDisplaySize(this.gl.canvas);
 
     // Tell WebGL how to convert from clip space to pixels
@@ -117,6 +119,8 @@ class Computer {
    * @param {string} input - The current program state
    */
   run(input) {
+    const gl = this.gl;
+
     input.split(' ').forEach((token) => {
       switch (token) {
         case 'circle':
@@ -124,7 +128,8 @@ class Computer {
         case 'square':
         case 'top':
         case 'x':
-          this.mask = this.gl.getUniformLocation(this.program, token);
+          gl.uniform1i(this.mask, 0);
+          this.mask = gl.getUniformLocation(this.program, token);
           break;
         case 'apply':
           this.#renderToTexture();
@@ -138,7 +143,7 @@ class Computer {
   }
 
   /**
-   * Draw the destination texture onto the canvas.
+   * Render the destination texture onto the canvas.
    */
   #renderToCanvas() {
     const gl = this.gl;
@@ -154,7 +159,7 @@ class Computer {
   }
 
   /**
-   * Draw to a destination texture using the texture at `source` as input.
+   * Render to a destination texture using the texture at `source` as input.
    */
   #renderToTexture() {
     const gl = this.gl;
@@ -183,6 +188,7 @@ class Computer {
   /**
    * Create a shader given its code and type.
    * @param {object} - where `text` is the code and `type` is the shader type
+   * @returns {object} - The newly created shader object
    */
   #createShader(code) {
     const gl = this.gl;
@@ -201,6 +207,7 @@ class Computer {
 
   /**
    * Create a new texture with pre-set configuration options.
+   * @returns {object} - The newly created texture object
    */
   #createTexture() {
     const gl = this.gl;
@@ -229,8 +236,9 @@ class Computer {
   }
 
   /**
-   * Create a program given a list of objects
-   * @param {Array} - A list of objects where `text` is the code and `type` is the shader type
+   * Create a program given an array of objects.
+   * @param {Array} - An array of objects where `text` is the code and `type` is the shader type
+   * @returns {object} - The newly created program object
    */
   #createProgram(code) {
     const gl = this.gl;
@@ -256,6 +264,7 @@ class Computer {
 
   /**
    * Setup full screen rendering using two triangles.
+   * @returns {float} - The number of vertices in the `vertices` array
    */
   #setupTriangles() {
     const gl = this.gl;
