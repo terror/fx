@@ -7,7 +7,8 @@ out vec2 uv;
 uniform vec2 resolution;
 
 void main() {
-  uv = position.xy * 0.5 + 0.5;
+  // -1 -> +1
+  uv = (position.xy * 0.5 + 0.5) * 2.0 - 1.0;
   gl_Position = position;
 }
 `;
@@ -26,8 +27,11 @@ uniform sampler2D source;
 uniform bool invert;
 
 // masks
+uniform bool bottom;
 uniform bool circle;
 uniform bool cross;
+uniform bool left;
+uniform bool right;
 uniform bool square;
 uniform bool top;
 uniform bool x;
@@ -39,18 +43,14 @@ vec4 operation(vec4 pixel) {
 }
 
 bool is_masked() {
-  // TODO
-  if (circle)
-    return normalize(uv.x) < 1.0 && normalize(uv.y) < 1.0;
-  // TODO
-  if (cross)
-    return abs(uv.x) < 0.25 || abs(uv.y) < 0.25;
-  if (square)
-    return abs(uv.x - 0.5) < 0.25 && abs(uv.y - 0.5) < 0.25;
-  if (top)
-    return uv.y > 0.5;
-  if (x)
-    return min(abs((1.0 - uv.x) - uv.y), abs(uv.x - uv.y)) < 0.1;
+  if (bottom) return uv.y > 0.0;
+  if (circle) return length(uv) < 1.0;
+  if (cross) return abs(uv.x) < 0.25 || abs(uv.y) < 0.25;
+  if (left) return uv.x < 0.0;
+  if (right) return uv.x > 0.0;
+  if (square) return abs(uv.x) < 0.5 && abs(uv.y) < 0.5;
+  if (top) return uv.y < 0.0;
+  if (x) return abs(uv.x - uv.y) < 0.25 || abs(uv.x + uv.y) < 0.25;
   return true;
 }
 
@@ -123,8 +123,11 @@ class Computer {
 
     input.split(' ').forEach((token) => {
       switch (token) {
+        case 'bottom':
         case 'circle':
         case 'cross':
+        case 'left':
+        case 'right':
         case 'square':
         case 'top':
         case 'x':
@@ -152,8 +155,8 @@ class Computer {
     gl.bindTexture(gl.TEXTURE_2D, this.textures[this.source]);
 
     // Unset the current mask and operation
-    this.gl.uniform1i(this.mask, 0);
-    this.gl.uniform1i(this.operation, 0);
+    // this.gl.uniform1i(this.mask, 0);
+    // this.gl.uniform1i(this.operation, 0);
 
     gl.drawArrays(gl.TRIANGLES, 0, this.length);
   }
