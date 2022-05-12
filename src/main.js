@@ -77,17 +77,21 @@ class Computer {
       throw 'Failed to initialize WebGL context';
     }
 
-    // The WebGL program composed of two shaders
-    this.program = this.#createProgram([
-      { text: vert, type: this.gl.VERTEX_SHADER },
-      { text: frag, type: this.gl.FRAGMENT_SHADER },
-    ]);
+    // Set the canvas to black
+    this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT);
 
     // Resize the canvas to match the size its displayed
     webglUtils.resizeCanvasToDisplaySize(this.gl.canvas);
 
     // Tell WebGL how to convert from clip space to pixels
     this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
+
+    // The WebGL program composed of two shaders
+    this.program = this.#createProgram([
+      { text: vert, type: this.gl.VERTEX_SHADER },
+      { text: frag, type: this.gl.FRAGMENT_SHADER },
+    ]);
 
     // Length of our triangle indices array used for drawing
     this.length = this.#setupTriangles();

@@ -1,27 +1,34 @@
+* = could probably remove
+
 masks:
-- all
-- *bottom
-- circle
-- *left
-- mod    (div, rem)
-- *right
-- rows   (nrows, step)
-- square
-- top
-- x
+- [x] all
+- [x] *bottom
+- [ ] circle
+- [x] *left
+- [ ] mod    (div, rem)
+- [x] *right
+- [ ] rows   (nrows, step)
+- [x] square
+- [x] top
+- [x] x
 
 operations:
-- identity
-- invert
-- rotate-color
+- [x] identity
+- [x] invert
+- [x] *invert_b
+- [x] *invert_g
+- [x] *invert_r
+- [ ] rotate-color (turns)
 
 other keywords:
-- apply
-- for    (count)
-- rotate (turns)
-- scale  (scaling)
-- wrap
+- [x] apply
+- [ ] for    (count)
+- [ ] loop
+- [ ] rotate (turns)
+- [ ] scale  (scaling)
+- [ ] wrap
 
 TODO:
-- fix canvas rendering
-- support keywords with arguments
+- [x] fix canvas rendering
+- [ ] set canvas default color to black (broken)
+- [ ] support keywords with arguments
