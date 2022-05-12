@@ -4,11 +4,9 @@ const vert = `
 in vec4 position;
 out vec2 uv;
 
-uniform vec2 resolution;
-
 void main() {
   // -1 -> +1
-  uv = (position.xy * 0.5 + 0.5) * 2.0 - 1.0;
+  uv = position.xy * 0.5 + 0.5;
   gl_Position = position;
 }
 `;
@@ -23,8 +21,13 @@ out vec4 color;
 
 uniform sampler2D source;
 
+#define I texture(source, uv)
+
 // operations
 uniform bool invert;
+uniform bool invert_b;
+uniform bool invert_g;
+uniform bool invert_r;
 
 // masks
 uniform bool bottom;
@@ -36,27 +39,28 @@ uniform bool square;
 uniform bool top;
 uniform bool x;
 
-vec4 operation(vec4 pixel) {
-  if (invert)
-    return vec4(1.0 - pixel.rgb, 1.0);
-  return pixel;
+vec4 operation() {
+  if (invert) return vec4(1.0 - I.rgb, 1.0);
+  if (invert_b) return vec4(I.rg, 1.0 - I.b, 1.0);
+  if (invert_g) return vec4(I.r, 1.0 - I.g, I.b, 1.0);
+  if (invert_r) return vec4(1.0 - I.r, I.gb, 1.0);
+  return I;
 }
 
 bool is_masked() {
-  if (bottom) return uv.y > 0.0;
-  if (circle) return length(uv) < 1.0;
-  if (cross) return abs(uv.x) < 0.25 || abs(uv.y) < 0.25;
-  if (left) return uv.x < 0.0;
-  if (right) return uv.x > 0.0;
-  if (square) return abs(uv.x) < 0.5 && abs(uv.y) < 0.5;
-  if (top) return uv.y < 0.0;
-  if (x) return abs(uv.x - uv.y) < 0.25 || abs(uv.x + uv.y) < 0.25;
+  if (bottom) return uv.y > 0.5;
+  if (circle) length((uv - 0.5) * 2.0) < 0.5;
+  if (cross) return abs(uv.x - 0.5) < 0.1 || abs(uv.y - 0.5) < 0.1;
+  if (left) return uv.x < 0.5;
+  if (right) return uv.x > 0.5;
+  if (square) return abs(uv.x - 0.5) < 0.25 && abs(uv.y - 0.5) < 0.25;
+  if (top) return uv.y < 0.5;
+  if (x) return min(abs((1.0 - uv.x) - uv.y), abs(uv.x - uv.y)) < 0.1;
   return true;
 }
 
 void main() {
-  vec4 pixel = texture(source, uv);
-  color = is_masked() ? operation(pixel) : pixel;
+  color = is_masked() ? operation() : I;
 }
 `;
 
@@ -84,13 +88,6 @@ class Computer {
 
     // Tell WebGL how to convert from clip space to pixels
     this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
-
-    // Set the resolution
-    this.gl.uniform2f(
-      this.gl.getUniformLocation(this.program, 'resolution'),
-      this.gl.canvas.width,
-      this.gl.canvas.height
-    );
 
     // Length of our triangle indices array used for drawing
     this.length = this.#setupTriangles();
@@ -123,6 +120,7 @@ class Computer {
 
     input.split(' ').forEach((token) => {
       switch (token) {
+        case 'all':
         case 'bottom':
         case 'circle':
         case 'cross':
@@ -133,6 +131,13 @@ class Computer {
         case 'x':
           gl.uniform1i(this.mask, 0);
           this.mask = gl.getUniformLocation(this.program, token);
+          break;
+        case 'invert':
+        case 'invert_b':
+        case 'invert_g':
+        case 'invert_r':
+          gl.uniform1i(this.operation, 0);
+          this.operation = gl.getUniformLocation(this.program, token);
           break;
         case 'apply':
           this.#renderToTexture();
@@ -155,8 +160,8 @@ class Computer {
     gl.bindTexture(gl.TEXTURE_2D, this.textures[this.source]);
 
     // Unset the current mask and operation
-    // this.gl.uniform1i(this.mask, 0);
-    // this.gl.uniform1i(this.operation, 0);
+    this.gl.uniform1i(this.mask, 0);
+    this.gl.uniform1i(this.operation, 0);
 
     gl.drawArrays(gl.TRIANGLES, 0, this.length);
   }
@@ -223,8 +228,8 @@ class Computer {
       gl.TEXTURE_2D,
       0,
       gl.RGBA,
-      256,
-      256,
+      gl.canvas.width,
+      gl.canvas.height,
       0,
       gl.RGBA,
       gl.UNSIGNED_BYTE,
