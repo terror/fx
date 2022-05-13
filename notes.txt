@@ -15,9 +15,9 @@ masks:
 operations:
 - [x] identity
 - [x] invert
-- [x] *invert_b
-- [x] *invert_g
-- [x] *invert_r
+- [x] *invert-b
+- [x] *invert-g
+- [x] *invert-r
 - [ ] rotate-color (turns)
 
 other keywords:
@@ -31,4 +31,9 @@ other keywords:
 TODO:
 - [x] fix canvas rendering
 - [ ] set canvas default color to black (broken)
+- [ ] what list of keywords to support?
 - [ ] support keywords with arguments
+- [ ] support multiline programs
+- [ ] save images to a url / (disk?)
+- [ ] display errors to the user
+- [ ] pre-populate program that outputs something cool

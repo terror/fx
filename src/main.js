@@ -23,13 +23,102 @@ uniform sampler2D source;
 
 #define I texture(source, uv)
 
-// operations
+uniform bool aberrate;
 uniform bool invert;
 uniform bool invert_b;
 uniform bool invert_g;
 uniform bool invert_r;
+uniform bool mirror_h;
+uniform bool mirror_v;
+uniform bool pixelate;
+uniform bool rotate;
+uniform bool spin;
 
-// masks
+const mat3 rgb_to_yiq = mat3(
+  0.299,     0.587,     0.114,
+  0.595716, -0.274453, -0.321263,
+  0.211456, -0.522591,  0.311135
+);
+
+const mat3 yiq_to_rgb = mat3(
+  1.0,  0.9563,  0.6210,
+  1.0, -0.2721, -0.6474,
+  1.0, -1.1070,  1.7046
+);
+
+vec4 _rotate() {
+  vec3 yiq = rgb_to_yiq * texture(source, uv).rgb;
+  float hue = atan(yiq.b, yiq.g);
+  float hue_ = hue + 15.0;
+  float chroma = sqrt(yiq.b * yiq.b + yiq.g * yiq.g);
+  vec3 yiq_ = vec3(yiq.r, chroma * cos(hue_), chroma * sin(hue_));
+  return vec4(yiq_to_rgb * yiq_, 1.0);
+}
+
+vec2 barrel(vec2 coord, float amt) {
+  vec2 cc = coord - 0.5;
+  float dist = dot(cc, cc);
+	return coord + cc * dist * amt;
+}
+
+float sat(float t) {
+	return clamp(t, 0.0, 1.0);
+}
+
+float linterp(float t) {
+	return sat(1.0 - abs(2.0 * t - 1.0));
+}
+
+float remap(float t, float a, float b) {
+	return sat((t - a) / (b - a));
+}
+
+const float max_distort     = 2.2;
+const int num_iter          = 12;
+const float reci_num_iter_f = 1.0 / float(num_iter);
+
+vec3 spectrum_offset(float t) {
+	vec3 ret;
+	float lo = step(t, 0.5);
+	float hi = 1.0 - lo;
+	float w = linterp(remap(t, 1.0 / 6.0, 5.0 / 6.0));
+	ret = vec3(lo, 1.0, hi) * vec3(1.0 - w, w, 1.0 - w);
+	return pow(ret, vec3(1.0 / 2.2));
+}
+
+vec4 _aberrate() {
+	vec3 sumcol = vec3(0.0);
+	vec3 sumw = vec3(0.0);
+
+	for (int i = 0; i < num_iter; ++i) {
+		float t = float(i) * reci_num_iter_f;
+		vec3 w = spectrum_offset(t);
+		sumw += w;
+		sumcol += w * texture(source, barrel(uv, max_distort * t)).rgb;
+	}
+
+  return vec4(sumcol.rgb / sumw, 1.0);
+}
+
+vec4 _spin() {
+  mat2 m = mat2(cos(0.5), -sin(0.5), sin(0.5), cos(0.5));
+  return texture(source, (uv - 0.5) * m + 0.5);
+}
+
+vec4 operation() {
+  if (aberrate) return _aberrate();
+  if (invert) return vec4(1.0 - I.rgb, 1.0);
+  if (invert_b) return vec4(I.rg, 1.0 - I.b, 1.0);
+  if (invert_g) return vec4(I.r, 1.0 - I.g, I.b, 1.0);
+  if (invert_r) return vec4(1.0 - I.r, I.gb, 1.0);
+  if (mirror_h) return texture(source, vec2(uv.x < 0.5 ? uv.x * 2.0 : 1.0 - (uv.x - 0.5) * 2.0, uv.y));
+  if (mirror_v) return texture(source, vec2(uv.x, uv.y < 0.5 ? uv.y * 2.0 : 1.0 - (uv.y - 0.5) * 2.0));
+  if (pixelate) return texture(source, round(uv * 10.0) * 1.0 / (10.0));
+  if (rotate) return _rotate();
+  if (spin) return _spin();
+  return I;
+}
+
 uniform bool bottom;
 uniform bool circle;
 uniform bool cross;
@@ -38,14 +127,6 @@ uniform bool right;
 uniform bool square;
 uniform bool top;
 uniform bool x;
-
-vec4 operation() {
-  if (invert) return vec4(1.0 - I.rgb, 1.0);
-  if (invert_b) return vec4(I.rg, 1.0 - I.b, 1.0);
-  if (invert_g) return vec4(I.r, 1.0 - I.g, I.b, 1.0);
-  if (invert_r) return vec4(1.0 - I.r, I.gb, 1.0);
-  return I;
-}
 
 bool is_masked() {
   if (bottom) return uv.y > 0.5;
@@ -136,10 +217,16 @@ class Computer {
           gl.uniform1i(this.mask, 0);
           this.mask = gl.getUniformLocation(this.program, token);
           break;
+        case 'aberrate':
         case 'invert':
         case 'invert-b':
         case 'invert-g':
         case 'invert-r':
+        case 'mirror-h':
+        case 'mirror-v':
+        case 'pixelate':
+        case 'rotate':
+        case 'spin':
           gl.uniform1i(this.operation, 0);
           this.operation = gl.getUniformLocation(
             this.program,
@@ -167,6 +254,11 @@ class Computer {
     gl.bindTexture(gl.TEXTURE_2D, this.textures[this.source]);
 
     // Unset the current mask and operation
+    //
+    // TODO: this is correct, but requires 2
+    // applies since the canvas default color is
+    // white
+    //
     // this.gl.uniform1i(this.mask, 0);
     // this.gl.uniform1i(this.operation, 0);
 
