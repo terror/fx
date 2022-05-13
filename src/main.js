@@ -141,7 +141,7 @@ bool is_masked() {
 }
 
 void main() {
-  color = is_masked() ? operation() : I;
+  color = is_masked() ? operation() : vec4(I.xyz, 1.0);
 }
 `;
 
@@ -157,10 +157,6 @@ class Computer {
     if (!this.gl) {
       throw 'Failed to initialize WebGL context';
     }
-
-    // Set the canvas to black
-    this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT);
 
     // Resize the canvas to match the size its displayed
     webglUtils.resizeCanvasToDisplaySize(this.gl.canvas);
@@ -254,13 +250,8 @@ class Computer {
     gl.bindTexture(gl.TEXTURE_2D, this.textures[this.source]);
 
     // Unset the current mask and operation
-    //
-    // TODO: this is correct, but requires 2
-    // applies since the canvas default color is
-    // white
-    //
-    // this.gl.uniform1i(this.mask, 0);
-    // this.gl.uniform1i(this.operation, 0);
+    this.gl.uniform1i(this.mask, 0);
+    this.gl.uniform1i(this.operation, 0);
 
     gl.drawArrays(gl.TRIANGLES, 0, this.length);
   }
