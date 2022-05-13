@@ -5,7 +5,7 @@ in vec4 position;
 out vec2 uv;
 
 void main() {
-  // -1 -> +1
+  // 0 -> 1
   uv = position.xy * 0.5 + 0.5;
   gl_Position = position;
 }
@@ -137,11 +137,14 @@ class Computer {
           this.mask = gl.getUniformLocation(this.program, token);
           break;
         case 'invert':
-        case 'invert_b':
-        case 'invert_g':
-        case 'invert_r':
+        case 'invert-b':
+        case 'invert-g':
+        case 'invert-r':
           gl.uniform1i(this.operation, 0);
-          this.operation = gl.getUniformLocation(this.program, token);
+          this.operation = gl.getUniformLocation(
+            this.program,
+            token.replace('-', '_')
+          );
           break;
         case 'apply':
           this.#renderToTexture();
@@ -164,8 +167,8 @@ class Computer {
     gl.bindTexture(gl.TEXTURE_2D, this.textures[this.source]);
 
     // Unset the current mask and operation
-    this.gl.uniform1i(this.mask, 0);
-    this.gl.uniform1i(this.operation, 0);
+    // this.gl.uniform1i(this.mask, 0);
+    // this.gl.uniform1i(this.operation, 0);
 
     gl.drawArrays(gl.TRIANGLES, 0, this.length);
   }
