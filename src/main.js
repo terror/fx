@@ -130,7 +130,7 @@ uniform bool x;
 
 bool is_masked() {
   if (bottom) return uv.y > 0.5;
-  if (circle) length((uv - 0.5) * 2.0) < 0.5;
+  if (circle) return length((uv - 0.5) * 2.0) < 0.5;
   if (cross) return abs(uv.x - 0.5) < 0.1 || abs(uv.y - 0.5) < 0.1;
   if (left) return uv.x < 0.5;
   if (right) return uv.x > 0.5;
