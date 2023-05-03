@@ -1,3 +1,2 @@
-## webgl-proto
-
-js + webgl texture input/output chaining prototype
+**fx** is a simple language for producing art based on OpenGL texture
+input/output chaining.
