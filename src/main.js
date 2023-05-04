@@ -199,7 +199,7 @@ class Computer {
   run(input) {
     const gl = this.gl;
 
-    input.split(' ').forEach((token) => {
+    input.split('\n').forEach((token) => {
       switch (token) {
         case 'all':
         case 'bottom':
