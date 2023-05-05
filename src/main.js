@@ -200,7 +200,7 @@ class Computer {
     const gl = this.gl;
 
     input.split('\n').forEach((token) => {
-      switch (token) {
+      switch (token.split(' ')[0]) {
         case 'all':
         case 'bottom':
         case 'circle':
@@ -230,10 +230,11 @@ class Computer {
           );
           break;
         case 'apply':
-          this.#renderToTexture();
+          for (let i = 0; i < parseInt(token.split(' ')[1] || 1); i++)
+            this.#renderToTexture();
           break;
         default:
-          throw `Failed to compile program: ${input[0]}`;
+          throw `Failed to compile program: ${input}`;
       }
     });
 
