@@ -159,7 +159,7 @@ class Computer {
     }
 
     // Resize the canvas to match the size its displayed
-    webglUtils.resizeCanvasToDisplaySize(this.gl.canvas);
+    this.#resizeCanvasToDisplaySize(this.gl.canvas);
 
     // Tell WebGL how to convert from clip space to pixels
     this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
@@ -238,6 +238,21 @@ class Computer {
     });
 
     this.#renderToCanvas();
+  }
+
+  /*
+   * Resize the canvas to match the size its displayed.
+   */
+  #resizeCanvasToDisplaySize(canvas, multiplier) {
+    multiplier = multiplier || 1;
+
+    const width = (canvas.clientWidth * multiplier) | 0;
+    const height = (canvas.clientHeight * multiplier) | 0;
+
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
   }
 
   /**
