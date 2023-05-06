@@ -151,7 +151,9 @@ const DEFAULT_OPERATION = 'invert';
 class Computer {
   constructor() {
     // The WebGL canvas context
-    this.gl = document.getElementById('canvas').getContext('webgl2');
+    this.gl = document
+      .getElementById('canvas')
+      .getContext('webgl2', { preserveDrawingBuffer: true });
 
     // Throw if we can't initialize WebGL
     if (!this.gl) {
@@ -232,6 +234,12 @@ class Computer {
         case 'apply':
           for (let i = 0; i < parseInt(token.split(' ')[1] || 1); i++)
             this.#renderToTexture();
+          break;
+        case 'export':
+          const link = document.createElement('a');
+          link.download = 'image.png';
+          link.href = document.getElementById('canvas').toDataURL();
+          link.click();
           break;
         default:
           throw `Failed to compile program: ${input}`;

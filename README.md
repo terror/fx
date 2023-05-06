@@ -13,4 +13,5 @@ $ python3 -m http.server 8000 --directory ./src
 
 ### Prior Art
 
-[`degenerate`](https://github.com/casey/degenerate) - A programmable generative art engine that runs in the browser
+[`degenerate`](https://github.com/casey/degenerate) - A programmable generative
+art engine that runs in the browser
